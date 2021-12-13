@@ -76,7 +76,6 @@ model.fit(x_train_scaled, y_train, epochs=10)
 
 model.save('models/eyestatus.h5', overwrite=True)
 
-
 loaded_model = load_model('models/eyestatus.h5')
 
 loaded_model.evaluate(x_test_scaled, y_test)

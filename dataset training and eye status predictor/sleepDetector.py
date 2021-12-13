@@ -9,6 +9,7 @@ import numpy as np
 import os
 import pathlib
 import time as tm
+from pygame import time, mixer
 
 from tensorflow.keras.models import Model
 from tensorflow.keras.models import load_model
@@ -25,6 +26,14 @@ model =load_model('models/eyestatus.h5')
 
 video = cv.VideoCapture(0)
 
+score=0
+initial_time=tm.time()
+
+mixer.init()
+mixer.music.load('audio/alert.ogg')
+
+
+
 if(video.isOpened()==False):
     print("video path not satisfied")
 else:
@@ -38,7 +47,7 @@ else:
                 cropped_face = frame[fy:fy+fh, fx:fx+fw]
                 eyes = eye.detectMultiScale(cropped_face)
                 cropped_face_display = cv.resize(cropped_face, (200, 200))
-                cv.imshow('face', cropped_face_display)
+                # cv.imshow('face', cropped_face_display)
 
                 x = []
                 for ex, ey, ew, eh in eyes:
@@ -50,15 +59,31 @@ else:
                 x_scaled = x/255 
                 # print(len(x))
                 if(len(x)==2):
-                    cv.imshow('eye', cropped_eye)
+                    # cv.imshow('eye', cropped_eye)
                     predictions = model.predict(x)
                     probablities = tf.nn.softmax(predictions[0])
                     if(np.argmax(probablities) == 1):
-                        print("open")
+                        # print("open")
+                        score=score+1
                     else:
-                        print("closed")
+                        # print("closed")
+                        score=score-1
+            differnce_time= (tm.time()-initial_time)
+            if differnce_time > 3:
+                
+                if(score > 0):
+                    print("open")
+                    initial_time=tm.time()
+                else:
+                    print("closed")
+                    mixer.music.play()
+                    while mixer.music.get_busy():
+                        time.Clock().tick(2)
+                    initial_time=tm.time()    
+                score=0    
+
             k=cv.waitKey(1) & 0xFF         
             if k == 27:
-                break
+                break            
 
 cv.destroyAllWindows()
