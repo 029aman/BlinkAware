@@ -33,7 +33,6 @@ mixer.init()
 mixer.music.load('audio/alert.ogg')
 
 
-
 if(video.isOpened()==False):
     print("video path not satisfied")
 else:
@@ -69,9 +68,8 @@ else:
                         # print("closed")
                         score=score-1
             differnce_time= (tm.time()-initial_time)
-            if differnce_time > 3:
-                
-                if(score > 0):
+            if differnce_time > 2:
+                if(score >= 0):
                     print("open")
                     initial_time=tm.time()
                 else:
@@ -82,8 +80,7 @@ else:
                     initial_time=tm.time()    
                 score=0    
 
-            k=cv.waitKey(1) & 0xFF         
+            k=cv.waitKey(1) & 0xFF 
             if k == 27:
-                break            
-
+                break
 cv.destroyAllWindows()
