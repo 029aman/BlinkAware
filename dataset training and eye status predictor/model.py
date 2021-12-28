@@ -72,7 +72,7 @@ model.compile(
     metrics=['accuracy']
 )
 
-model.fit(x_train_scaled, y_train, epochs=20)
+model.fit(x_train_scaled, y_train, epochs=5)
 
 model.save('models/eyestatus.h5', overwrite=True)
 

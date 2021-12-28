@@ -10,6 +10,7 @@ import os
 import pathlib
 import time as tm
 from pygame import time, mixer
+import threading
 
 from tensorflow.keras.models import Model
 from tensorflow.keras.models import load_model
@@ -37,7 +38,7 @@ if(video.isOpened()==False):
     print("video path not satisfied")
 else:
     while(video.isOpened()==True):
-        flag, frame= video.read()
+        flag, frame = video.read()
         cv.imshow('frame', frame)
 
         if(flag==True):
@@ -45,7 +46,7 @@ else:
             for fx, fy, fw, fh in faces:
                 cropped_face = frame[fy:fy+fh, fx:fx+fw]
                 eyes = eye.detectMultiScale(cropped_face)
-                cropped_face_display = cv.resize(cropped_face, (200, 200))
+                # cropped_face_display = cv.resize(cropped_face, (200, 200))
                 # cv.imshow('face', cropped_face_display)
 
                 x = []
@@ -55,7 +56,7 @@ else:
                     # cv.imshow('eye', cropped_eye)
                     x.append(cropped_eye)
                 x = np.array(x)
-                x_scaled = x/255 
+                x_scaled = x/255
                 # print(len(x))
                 if(len(x)==2):
                     # cv.imshow('eye', cropped_eye)
@@ -67,7 +68,7 @@ else:
                     else:
                         # print("closed")
                         score=score-1
-            differnce_time= (tm.time()-initial_time)
+            differnce_time = (tm.time()-initial_time)
             if differnce_time > 2:
                 if(score >= 0):
                     print("open")
@@ -76,7 +77,7 @@ else:
                     print("closed")
                     mixer.music.play()
                     while mixer.music.get_busy():
-                        time.Clock().tick(2)
+                        threading.Thread(target=time.Clock().tick(2)).start()
                     initial_time=tm.time()    
                 score=0    
 
