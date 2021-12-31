@@ -59,6 +59,12 @@ def test_sample():
 
 
 def model_test():
+    head_result["text"] = "TESTING..."
+    result_loss["text"] = ""
+    result_accuracy["text"] = ""
+    frame_result.update()
+
+
     model_path = model_url_entry.get()
     model_path = pathlib.Path(model_path)
     global loaded_model
@@ -92,43 +98,53 @@ def model_test():
     y = np.array(y)
     x_scaled = x / 255
 
-    log_test_info = loaded_model.evaluate(x_scaled, y)
-    textbox_test_log.insert(0, log_test_info)
-    textbox_test_log.update()
+    result = loaded_model.evaluate(x_scaled, y)
+    
+    head_result["text"] = "Results"
+    result_loss["text"] = str("Loss  :  " + str(result[0]))
+    result_accuracy["text"] = str("Accuracy  :  " + str(result[1]))
+    frame_result.update()
+
 
 
 def model_train():
+    label_status["text"] = "TRAINING...."
+    label_status.update()
+
+    label_time_taken["text"] = ""
+    label_time_taken.update()
+
+    save_status["text"] = ""
+    save_status.update()
+    train_initial_time = tm.time()
+
     dataset_path = url_entry.get()
     dataset_path = pathlib.Path(dataset_path)
 
-    open = list(dataset_path.glob('open/*'))
-    closed = list(dataset_path.glob('closed/*'))
+    pos = list(dataset_path.glob('p/*'))
+    neg = list(dataset_path.glob('n/*'))
 
-    eye_status = {
-       'open' : open,
-       'closed' : closed
+    test_name = {
+        'p' : pos,
+        'n' : neg
     }
 
-    eye_status_label = {
-       'open' : 1,
-       'closed' : 0
+    test_state = {
+        'p' : 1, 
+        'n' : 0
     }
 
-
-    x, y = [] , []
-    for eye_folder, eye_status_img in eye_status.items():
-        for image in eye_status_img:
+    x , y = [] , []
+    for name , state in test_name.items():
+        for image in state:
             img = cv.imread(str(image))
             img_resized = cv.resize(img, (100, 100))
             x.append(img_resized)
-            y.append(eye_status_label[eye_folder])
-    
-    
+            y.append(test_state[name])
+
     x = np.array(x)
     y = np.array(y)
 
-
-    
     x_train_scaled = x/255.0
     
     model = Sequential([
@@ -149,6 +165,19 @@ def model_train():
         metrics=[metrics_comboBox.get()]
     )
     model.fit(x_train_scaled, y, epochs=int(epoches_input.get()))
+
+    model.save('models/model1.h5', overwrite=True)
+
+    time_taken = tm.time() - train_initial_time
+
+    label_time_taken["text"] = str("Time Taken :  "+str(time_taken) + " Seconds")
+    label_time_taken.update()
+
+    save_status["text"] = "MODEL SAVED AS model1.h5"
+    save_status.update()
+
+    label_status["text"] = "TRAINING COMPLETED"
+    label_status.update()
 
 
 def switch1():
@@ -348,8 +377,10 @@ Help.add_command(label="About", command=skip)
 root.config(menu=menu_bar)
 
 #----------------------------------------------------------------------------MENU BAR--------------------------------------------------------------------------------
-outermost_frame =Frame(root).pack(fill=BOTH, expand=1)
-workspace_frame = Frame(outermost_frame).pack(fill=BOTH, anchor=N, side=TOP)
+outermost_frame =Frame(root)
+outermost_frame.pack(fill=BOTH, expand=1)
+workspace_frame = Frame(outermost_frame)
+workspace_frame.pack(fill=BOTH, anchor=N, side=TOP)
 
 #------------------------------------------------------------------------------TABS----------------------------------------------------------------------------------- 
 tabs = ttk.Notebook(workspace_frame)
@@ -375,16 +406,6 @@ tabs.add(frame_test, image=img_test)
 #-----------TAB 2-----------#
 
 #-----------TAB 3-----------#
-frame_preview = Frame(tabs)
-frame_preview.pack(fill=BOTH, expand=1)
-img_preview = cv.imread("images/img_preview.png")
-img_preview = cv.cvtColor(img_preview, cv.COLOR_RGB2BGR)
-img_preview = cv.resize(img_preview, (96,38))
-img_preview = ImageTk.PhotoImage(Image.fromarray(img_preview))
-tabs.add(frame_preview, image=img_preview)
-#-----------TAB 3-----------#
-
-#-----------TAB 4-----------#
 frame_main = Frame(tabs)
 frame_main.pack(fill=BOTH, expand=1)
 img_main = cv.imread("images/img_main.png")
@@ -392,7 +413,8 @@ img_main = cv.cvtColor(img_main, cv.COLOR_RGB2BGR)
 img_main = cv.resize(img_main, (96,38))
 img_main = ImageTk.PhotoImage(Image.fromarray(img_main))
 tabs.add(frame_main, image=img_main)
-#-----------TAB 4-----------#
+#-----------TAB 3-----------#
+
 
 tabs.pack(fill=BOTH)
 #------------------------------------------------------------------------------TABS----------------------------------------------------------------------------------- 
@@ -427,10 +449,10 @@ img_browse = cv.imread("images/img_browse.png")
 img_browse = cv.resize(img_browse, (100, 30))
 img_browse = ImageTk.PhotoImage(Image.fromarray(img_browse))
 url_btn = Button(url_frame, image=img_browse, command=url_browse)
-url_btn.pack(side=RIGHT, anchor=E, padx=15, pady=25)
+url_btn.pack(side=RIGHT, anchor=E, padx=15, pady=55)
 
 url_frame.pack(fill=BOTH)
-frame_train_url.pack(fill=BOTH, padx=20, pady=10)
+frame_train_url.pack(fill=BOTH, padx=20, pady=(10, 20))
 #------------Train Frame URL-----------------
 
 
@@ -454,7 +476,7 @@ optimizer_comboBox = ttk.Combobox(compiler_optimizer_frame, values=optimizer_opt
 optimizer_comboBox.current(0)
 optimizer_comboBox.bind("<<ComboboxSelected>>", skip)
 optimizer_comboBox.pack(side=LEFT)
-compiler_optimizer_frame.pack(side=LEFT, anchor=W, expand=1, fill=X, padx=(15, 0), pady=(25, 70))
+compiler_optimizer_frame.pack(side=LEFT, anchor=W, expand=1, fill=X, padx=(15, 0), pady=(55, 80))
 
 #--------------------------
 
@@ -472,7 +494,7 @@ loss_comboBox = ttk.Combobox(compiler_loss_frame, values=loss_options)
 loss_comboBox.current(0)
 loss_comboBox.bind("<<ComboboxSeleceted>>", skip)
 loss_comboBox.pack(side=LEFT)
-compiler_loss_frame.pack(side=LEFT, anchor=CENTER, expand=1, fill=X, padx=(15, 0), pady=(25, 70))
+compiler_loss_frame.pack(side=LEFT, anchor=CENTER, expand=1, fill=X, padx=(15, 0), pady=(55, 80))
 #-------------------------
 
 compiler_metrics_frame = Frame(compiler_frame)
@@ -481,19 +503,18 @@ metrics_label.pack(side=LEFT)
 
 metrics_options = [
     "--select--",
-    "accuracy",
-    "unknown"
+    "accuracy"
 ]
 
 metrics_comboBox = ttk.Combobox(compiler_metrics_frame, values=metrics_options)
 metrics_comboBox.current(0)
 metrics_comboBox.bind("<<ComboboxSelected>>", skip)
 metrics_comboBox.pack(side=LEFT)
-compiler_metrics_frame.pack(side=RIGHT, expand=1, fill=X, pady=(25, 70), padx=(15, 15))
+compiler_metrics_frame.pack(side=RIGHT, expand=1, fill=X, pady=(55, 80), padx=(15, 15))
 #---------------------------
 
 compiler_frame.pack(fill=BOTH, expand=1)
-frame_train_compiler.pack(fill=BOTH, padx=20, pady=10, expand=1)
+frame_train_compiler.pack(fill=BOTH, padx=20, pady=20, expand=1)
 
 #------------Train Frame Compiler--------------
 
@@ -515,32 +536,31 @@ img_start = cv.imread("images/img_start.png")
 img_start = ImageTk.PhotoImage(Image.fromarray(img_start))
 Start_btn = Button(fit_start_frame, image=img_start, command=lambda : threading.Thread(target=model_train).start())
 Start_btn.pack()
-fit_start_frame.pack(side=RIGHT, padx=15, pady=10)
+fit_start_frame.pack(side=RIGHT, padx=15, pady=30)
 
 fit_frame.pack(side=LEFT ,fill=BOTH, expand=1)
-frame_train_fit.pack(fill=BOTH, padx=20, pady=10, expand=1)
+frame_train_fit.pack(fill=BOTH, padx=20, pady=20, expand=1)
 #------------Train Frame Fit--------------
 
 
 #------------Train Frame LOGs--------------
-frame_train_log = LabelFrame(frame_train, text="Log")
-log_frame = Frame(frame_train_log)
+frame_train_info = LabelFrame(frame_train, text="Status")
+info_frame = Frame(frame_train_info, height=100)
 
-textbox_train_log = Text(log_frame, height=30)
+label_status = Label(info_frame, text="GIVE INPUTS", font=("comicsansms 60 bold") )
+label_status.pack(anchor=CENTER, fill=BOTH, expand=1)
 
-textbox_train_log.pack(fill=BOTH, padx=10, pady=10, expand=1)
+label_time_taken = Label(info_frame, font=("comicsansms 10 italic"))
+label_time_taken.pack(anchor=CENTER, fill=BOTH, expand=1, pady=10)
 
+save_status = Label(info_frame, font=("comicsansms 20 italic"))
+save_status.pack(anchor=CENTER, fill=BOTH, expand=1, pady=10)
 
-log_frame.pack(fill=BOTH, expand=1)
-frame_train_log.pack(expand=1, fill=BOTH, padx=20, pady=10, side=LEFT)
+info_frame.pack(fill=BOTH, expand=1, pady=30)
+frame_train_info.pack(expand=1, fill=BOTH, padx=20, pady=20)
 
 #------------Train Frame LOGs--------------
-info_frame = LabelFrame(frame_train, text="Info")
-frame_info =Frame(info_frame)
 
-
-frame_info.pack(fill=BOTH, expand=1)
-info_frame.pack(fill=BOTH, expand=1, side=RIGHT, padx=20, pady=10)
 #---------------------------------------------------------------------------TAB 1 FRAME(Train)----------------------------------------------------------------------------
 
 
@@ -608,82 +628,28 @@ frame_test_start.pack(fill=BOTH, padx=20, pady=10)
 #----------------------Test Start-------------------
 
 #----------------------Result--------------------
-result_frame = LabelFrame(frame_test, text="Result")
+result_frame = Frame(frame_test)
 frame_result =Frame(result_frame)
 
+head_result = Label(frame_result, text="GIVE INPUT", font=("comicsansms 60 bold") )
+head_result.pack(anchor=CENTER, fill=BOTH, expand=1, pady=10)
 
-frame_info.pack(fill=BOTH, expand=1)
+result_accuracy = Label(frame_result, font=("comicsansms 30 italic"))
+result_accuracy.pack(anchor=CENTER, fill=BOTH, expand=1, pady=10)
+
+result_loss = Label(frame_result, font=("comicsansms 30 italic"))
+result_loss.pack(anchor=CENTER, fill=BOTH, expand=1, pady=10)
+
+frame_result.pack(fill=BOTH, expand=1)
 result_frame.pack(fill=BOTH, expand=1, side=LEFT, padx=20, pady=10)
 #----------------------Result--------------------
 
-#-----------------------Test Log--------------------
-frame_test_log = LabelFrame(frame_test, text="Log")
-log_test_frame = Frame(frame_test_log)
 
-textbox_test_log =Text(log_test_frame)
-
-textbox_test_log.pack(fill=BOTH, padx=10, pady=10, expand=1)
-
-log_test_frame.pack(fill=BOTH, expand=1)
-frame_test_log.pack(fill=BOTH, padx=20, pady=10, expand=1, side=RIGHT)
-#-----------------------Test Log--------------------
 #---------------------------------------------------------------------------TAB 2 FRAME(Test)----------------------------------------------------------------------------
 
-#---------------------------------------------------------------------------TAB 3 FRAME(Preview)----------------------------------------------------------------------------
-#-------------------------------CAM-------------------------------------------
-frame_preview_cam = Frame(frame_preview)
-cam_img = Frame(frame_preview_cam)
-label= Label(frame_preview_cam, text="am,an", height=55)
-
-label.pack(anchor=CENTER, expand=1, fill=BOTH)
-cam_img.pack(expand=1, fill=BOTH, padx=3)
-frame_preview_cam.pack(expand=1, fill=BOTH, padx=10, side=TOP, anchor=N)
-#--------------------------------CAM-------------------------------------------
-
-#--------------------------------OPTION CAM-------------------------------------------
-frame_cam_options = Frame(frame_preview)
-#----------------ON/OFF-----------------------
-cam_option_on = Frame(frame_cam_options)
-img_on_off = cv.imread("images/img_on_off.png")
-img_on_off = ImageTk.PhotoImage(Image.fromarray(img_on_off))
-cam_on_off_btn = Button(cam_option_on, image=img_on_off, borderwidth=0)
-cam_on_off_btn.pack()
-cam_option_on.pack(anchor=W, side=LEFT, expand=1,padx=10)
-#----------------ON/OFF-----------------------
-
-#-------------CLICK/RECORD--------------------------
-cam_option_click = Frame(frame_cam_options)
-img_click = cv.imread("images/img_click.png")
-img_click = ImageTk.PhotoImage(Image.fromarray(img_click))
-cam_click_btn = Button(cam_option_click, image=img_click, borderwidth=0)
-cam_click_btn.pack(side=LEFT, anchor=W, padx=8)
-
-img_switch = cv.imread("images/img_switch.png")
-img_switch = ImageTk.PhotoImage(Image.fromarray(img_switch))
-cam_switch_btn = Button(cam_option_click, image=img_switch, borderwidth=0)
-cam_switch_btn.pack(side=LEFT, anchor=CENTER, padx=8)
-
-img_record = cv.imread("images/img_record.png")
-img_record = ImageTk.PhotoImage(Image.fromarray(img_record))
-cam_record_btn = Button(cam_option_click, image=img_record, borderwidth=0)
-cam_record_btn.pack(side=LEFT, anchor=E, padx=8)
-cam_option_click.pack(anchor=CENTER, side=LEFT, expand=1,padx=10)
-#-------------CLICK/RECORD--------------------------
-
-#---------------RECENT IMG----------------------
-cam_option_recent = Frame(frame_cam_options)
-img_recent = cv.imread("images/img_on_off.png")
-img_recent = ImageTk.PhotoImage(Image.fromarray(img_recent))
-cam_recent_btn = Button(cam_option_recent, image=img_recent, borderwidth=0)
-cam_recent_btn.pack()
-cam_option_recent.pack(anchor=E, side=RIGHT, expand=1,padx=10)
-#---------------RECENT IMG----------------------
-frame_cam_options.pack(expand=1, padx=10, fill=BOTH, side=BOTTOM, anchor=S)
-#-------------------------------OPTION CAM--------------------------------------------
-#---------------------------------------------------------------------------TAB 3 FRAME(Preview)----------------------------------------------------------------------------
 
 
-#---------------------------------------------------------------------------TAB 4 FRAME(Main)----------------------------------------------------------------------------
+#---------------------------------------------------------------------------TAB 3 FRAME(Main)----------------------------------------------------------------------------
 
 main1 = Frame(frame_main)
 color_alert = LabelFrame(main1, text="COLOR")
@@ -719,5 +685,5 @@ score_alert_label = Label(score_alert, font=("comicsansms 60 bold"))
 score_alert_label.pack(anchor=CENTER, expand=1, fill=BOTH)
 score_alert.pack(side=RIGHT, anchor=E, fill=BOTH, expand=1, padx=20, pady=10)
 main2.pack(fill=BOTH, expand=1)
-#---------------------------------------------------------------------------TAB 4 FRAME(Main)----------------------------------------------------------------------------
+#---------------------------------------------------------------------------TAB 3 FRAME(Main)----------------------------------------------------------------------------
 root.mainloop()
