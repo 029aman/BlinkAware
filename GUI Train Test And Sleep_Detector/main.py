@@ -1,5 +1,4 @@
 #---------------------------------------------------------------------------LIBRARY------------------------------------------------------------------------------
-from re import M
 import tensorflow as tf
 import cv2 as cv 
 import pandas as pd
@@ -8,7 +7,11 @@ import numpy as np
 import os
 import pathlib
 import threading
+import time as tm
 
+
+
+from pygame import time, mixer
 from textwrap import fill
 from tkinter import *
 from tkinter import ttk
@@ -31,7 +34,7 @@ from tensorflow.python.ops.gen_array_ops import expand_dims, pad
 root = Tk()
 root.title("GUI Train Test")
 # root.iconbitmap()
-root.geometry("750x440")
+root.geometry("1200x800")
 # root.minsize(height=440, width=750)
 
 #--------------------------------------------------------------------------FUNCTIONS------------------------------------------------------------------------------
@@ -43,6 +46,56 @@ def url_browse():
     url_frame.foldername = filedialog.askdirectory()
     url_entry.delete(0, END)
     url_entry.insert(0, url_frame.foldername)
+
+def model_browse():
+    model_url_frame.filename = filedialog.askopenfilename(initialdir='C:/Users/029am/Desktop/test', title="Select a Model", filetypes=(("All Files", "*.*"), ("h5", "*.h5")))
+    model_url_entry.delete(0, END)
+    model_url_entry.insert(0, model_url_frame.filename)
+
+def test_sample():
+    sample_url_frame.filename = filedialog.askdirectory()
+    sample_url_entry.delete(0, END)
+    sample_url_entry.insert(0, sample_url_frame.filename)
+
+
+def model_test():
+    model_path = model_url_entry.get()
+    model_path = pathlib.Path(model_path)
+    global loaded_model
+    loaded_model = load_model(model_path)
+    
+    sample_path = sample_url_entry.get()
+    sample_path = pathlib.Path(sample_path)
+
+    pos = list(sample_path.glob('p/*'))
+    neg = list(sample_path.glob('n/*'))
+
+    test_name = {
+        'p' : pos,
+        'n' : neg
+    }
+
+    test_state = {
+        'p' : 1, 
+        'n' : 0
+    }
+
+    x , y = [] , []
+    for name , state in test_name.items():
+        for image in state:
+            img = cv.imread(str(image))
+            img_resized = cv.resize(img, (100, 100))
+            x.append(img_resized)
+            y.append(test_state[name])
+
+    x = np.array(x)
+    y = np.array(y)
+    x_scaled = x / 255
+
+    log_test_info = loaded_model.evaluate(x_scaled, y)
+    textbox_test_log.insert(0, log_test_info)
+    textbox_test_log.update()
+
 
 def model_train():
     dataset_path = url_entry.get()
@@ -93,9 +146,183 @@ def model_train():
     model.compile(
         optimizer=optimizer_comboBox.get(),
         loss=loss_comboBox.get(),
-        metrics=['accuracy']
+        metrics=[metrics_comboBox.get()]
     )
     model.fit(x_train_scaled, y, epochs=int(epoches_input.get()))
+
+
+def switch1():
+    global cam_status 
+    cam_status = 1
+
+
+def switch0():
+    global cam_status 
+    cam_status = 0
+
+
+def cam0():
+    face = cv.CascadeClassifier("cascadeClassifier/haarcascade_face.xml")
+    eye = cv.CascadeClassifier("cascadeClassifier/haarcascade_eye.xml")
+
+    model = load_model("models/eyestatus.h5")
+
+    video = cv.VideoCapture(0)
+
+    score = 0
+    initial_time = tm.time()
+
+    mixer.init()
+    mixer.music.load("audio/alert.ogg")
+    while video.isOpened() == True:
+        flag, frame = video.read()
+        # cv.imshow('frame', frame)
+
+        if flag == True:
+            faces = face.detectMultiScale(frame)
+            for fx, fy, fw, fh in faces:
+                cropped_face = frame[fy : fy + fh, fx : fx + fw]
+                eyes = eye.detectMultiScale(cropped_face)
+                # cropped_face_display = cv.resize(cropped_face, (200, 200))
+                # cv.imshow('face', cropped_face_display)
+
+                x = []
+                for ex, ey, ew, eh in eyes:
+                    cropped_eye = cropped_face[ey : ey + eh, ex : ex + ew]
+                    cropped_eye = cv.resize(cropped_eye, (100, 100))
+                    # cv.imshow('eye', cropped_eye)
+                    x.append(cropped_eye)
+                x = np.array(x)
+                global x_scaled
+                x_scaled = x / 255
+                # print(len(x))
+                if len(x) == 2:
+                    # cv.imshow('eye', cropped_eye)
+                    predictions = model.predict(x_scaled)
+                    probablities = tf.nn.softmax(predictions[0])
+                    if np.argmax(probablities) == 1:
+                        # print("open")
+                        score = score + 1
+                    else:
+                        # print("closed")
+                        score = score - 1
+            differnce_time = tm.time() - initial_time
+            if differnce_time > 2:
+                score_alert_label["text"] = str("Score :  " + str(score))
+                if score >= 0:
+                    print("open")
+                    alert_label["text"] = "Awake"
+                    color_alert_change["bg"] = "green"
+                    frame_main.update()
+                    initial_time = tm.time()
+                else:
+                    print("closed")
+                    alert_label["text"] = "Sleepy"
+                    color_alert_change["bg"] = "red"
+                    frame_main.update()
+                    mixer.music.play()
+                    while mixer.music.get_busy():
+                        time.Clock().tick(2)
+
+                    initial_time = tm.time()
+                score = 0
+
+            k = cv.waitKey(1) & 0xFF
+            if k == 27:
+                break
+        frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)    
+        img = ImageTk.PhotoImage(Image.fromarray(frame))
+        label_cam_display["image"] = img
+        if cam_status == 1:
+            video.release()
+            cam1()
+            break
+        frame_main.update()
+
+
+def cam1():
+    face = cv.CascadeClassifier("cascadeClassifier/haarcascade_face.xml")
+    eye = cv.CascadeClassifier("cascadeClassifier/haarcascade_eye.xml")
+
+    model = load_model("models/eyestatus.h5")
+
+    video1 = cv.VideoCapture(1)
+
+    score = 0
+    initial_time = tm.time()
+
+    mixer.init()
+    mixer.music.load("audio/alert.ogg")
+    while True:
+        flag, frame = video1.read()
+        # cv.imshow('frame', frame)
+
+        if flag == True:
+            faces = face.detectMultiScale(frame)
+            for fx, fy, fw, fh in faces:
+                cropped_face = frame[fy : fy + fh, fx : fx + fw]
+                eyes = eye.detectMultiScale(cropped_face)
+                # cropped_face_display = cv.resize(cropped_face, (200, 200))
+                # cv.imshow('face', cropped_face_display)
+
+                x = []
+                for ex, ey, ew, eh in eyes:
+                    cropped_eye = cropped_face[ey : ey + eh, ex : ex + ew]
+                    cropped_eye = cv.resize(cropped_eye, (100, 100))
+                    # cv.imshow('eye', cropped_eye)
+                    x.append(cropped_eye)
+                x = np.array(x)
+                global x_scaled
+                x_scaled = x / 255
+                # print(len(x))
+                if len(x) == 2:
+                    # cv.imshow('eye', cropped_eye)
+                    predictions = model.predict(x_scaled)
+                    probablities = tf.nn.softmax(predictions[0])
+                    if np.argmax(probablities) == 1:
+                        # print("open")
+                        score = score + 1
+                    else:
+                        # print("closed")
+                        score = score - 1
+            differnce_time = tm.time() - initial_time
+            if differnce_time > 2:
+                score_alert_label["text"] = str("Score :  " + str(score))
+                if score >= 0:
+                    print("open")
+                    alert_label["text"] = "Awake"
+                    color_alert_change["bg"] = "green"
+                    frame_main.update()
+                    initial_time = tm.time()
+                    initial_time = tm.time()
+                else:
+                    print("closed")
+                    alert_label["text"] = "Sleepy"
+                    color_alert_change["bg"] = "red"
+                    frame_main.update()
+                    mixer.music.play()
+                    while mixer.music.get_busy():
+                        time.Clock().tick(2)
+                    initial_time = tm.time()
+                score = 0
+
+            k = cv.waitKey(1) & 0xFF
+            if k == 27:
+                break
+        img = ImageTk.PhotoImage(Image.fromarray(frame))
+        label_cam_display["image"] = img
+        if cam_status == 0:
+            video1.release()
+            cam0()
+            break
+        frame_main.update()
+
+
+def on_off():
+    global cam_status 
+    cam_status = 0
+    cam0()
+
 
 #--------------------------------------------------------------------------FUNCTIONS------------------------------------------------------------------------------
 
@@ -335,7 +562,7 @@ model_url_entry_frame.pack(side=LEFT, fill=X, expand=1)
 img_browse1 = cv.imread("images/img_browse.png")
 img_browse1 = cv.resize(img_browse1, (100, 30))
 img_browse1 = ImageTk.PhotoImage(Image.fromarray(img_browse1))
-model_url_btn = Button(model_url_frame, image=img_browse1, command=skip)
+model_url_btn = Button(model_url_frame, image=img_browse1, command=model_browse)
 model_url_btn.pack(side=RIGHT, anchor=E, padx=15, pady=25)
 
 model_url_frame.pack(fill=BOTH)
@@ -358,7 +585,7 @@ sample_url_entry_frame.pack(side=LEFT, fill=X, expand=1)
 img_browse2 = cv.imread("images/img_browse.png")
 img_browse2 = cv.resize(img_browse2, (100, 30))
 img_browse2 = ImageTk.PhotoImage(Image.fromarray(img_browse2))
-sample_url_btn = Button(sample_url_frame, image=img_browse2, command=skip)
+sample_url_btn = Button(sample_url_frame, image=img_browse2, command=test_sample)
 sample_url_btn.pack(side=RIGHT, anchor=E, padx=15, pady=25)
 
 sample_url_frame.pack(fill=BOTH)
@@ -372,7 +599,7 @@ start_test_frame = Frame(frame_test_start)
 
 img_start1 = cv.imread("images/img_start.png")
 img_start1 = ImageTk.PhotoImage(Image.fromarray(img_start1))
-Start_btn_test = Button(start_test_frame, image=img_start1, command=skip)
+Start_btn_test = Button(start_test_frame, image=img_start1, command=lambda : threading.Thread(target=model_test).start())
 Start_btn_test.pack()
 
 
@@ -458,46 +685,38 @@ frame_cam_options.pack(expand=1, padx=10, fill=BOTH, side=BOTTOM, anchor=S)
 
 #---------------------------------------------------------------------------TAB 4 FRAME(Main)----------------------------------------------------------------------------
 
-# # frame_main_1 = LabelFrame(frame_main, text="1").pack()
-# main_color_alert = LabelFrame(frame_main, text="State")
-# label0 = Label(main_color_alert, text="aman").pack()
-# main_color_alert.pack()
-
-# main_cam = LabelFrame(frame_main, text="Display")
-# label1 = Label(main_cam, text="aman").pack()
-# main_cam.
-
-
-# # frame_main_2 = LabelFrame(frame_main, text="2").pack()
-# main_alert = LabelFrame(frame_main, text="Alert", width=90)
-# label2 = Label(main_alert, text="aman").pack()
-# main_alert.
-
-# main_evaluation = LabelFrame(frame_main, text="Evaluation")
-# label3 = Label(main_evaluation, text="aman").pack()
-# main_evaluation.
-
 main1 = Frame(frame_main)
 color_alert = LabelFrame(main1, text="COLOR")
-
+color_alert_change = Frame(color_alert, bg="black")
+color_alert_change.pack(padx=20, pady=20, expand=1, fill=BOTH)
 color_alert.pack(side=LEFT, anchor=W, fill=BOTH, expand=1, padx=20, pady=10)
 
 
-cam_display = LabelFrame(main1, text="Display")
-cam_display_frame = Frame(cam_display)
-label = Label(cam_display_frame, image=img_browse, bg="beige").pack(expand=1, fill=BOTH)
-cam_display_frame.pack(fill=BOTH, expand=1)
+cam_display = LabelFrame(main1, text="Display", height=650, width=480)
+# cam_display_frame = Frame(cam_display, height=500, width=660)
+img_camOFF = ImageTk.PhotoImage(Image.open('images/img_camOFF.png'))
+label_cam_display = Label(cam_display, bg="beige", image=img_camOFF)
+label_cam_display.pack()
+# cam_display_frame.pack(fill=BOTH, expand=1)
+cam0_btn = Button(cam_display, text="Cam 0", command=switch0)
+cam0_btn.pack(expand=1, fill=X, anchor=S, side=LEFT)
+on__btn = Button(cam_display, text="ON", command=on_off)
+on__btn.pack(expand=1, fill=X, side=LEFT, anchor=S)
+cam1_btn = Button(cam_display, text="Cam 1", command=switch1)
+cam1_btn.pack(expand=1, fill=X, anchor=S, side=RIGHT)
 cam_display.pack(side=RIGHT, anchor=E, fill=BOTH, expand=1, padx=20, pady=10)
-main1.pack(fill=BOTH, expand=1)
+main1.pack(fill=BOTH)
 
 main2 = Frame(frame_main)
 text_alert = LabelFrame(main2, text="Alert")
-
+alert_label = Label(text_alert, font=("comicsansms 60 bold"))
+alert_label.pack(anchor=CENTER, expand=1, fill=BOTH)
 text_alert.pack(side=LEFT, anchor=W, fill=BOTH, expand=1, padx=20, pady=10)
 
 
 score_alert = LabelFrame(main2, text="Score")
-
+score_alert_label = Label(score_alert, font=("comicsansms 60 bold"))
+score_alert_label.pack(anchor=CENTER, expand=1, fill=BOTH)
 score_alert.pack(side=RIGHT, anchor=E, fill=BOTH, expand=1, padx=20, pady=10)
 main2.pack(fill=BOTH, expand=1)
 #---------------------------------------------------------------------------TAB 4 FRAME(Main)----------------------------------------------------------------------------
