@@ -1,41 +1,30 @@
 #---------------------------------------------------------------------------LIBRARY------------------------------------------------------------------------------
 import tensorflow as tf
 import cv2 as cv 
-import pandas as pd
-import matplotlib.pyplot as plt
 import numpy as np
-import os
 import pathlib
 import threading
 import time as tm
 
 
-
 from pygame import time, mixer
-from textwrap import fill
 from tkinter import *
 from tkinter import ttk
-from tkinter import font
 from tkinter import filedialog
-from h5py._hl import dataset
-from scipy.sparse.construct import random
 from PIL import ImageTk, Image
-from tensorflow.keras.models import Model
 from tensorflow.keras.models import load_model
 from tensorflow.keras.models import Sequential
-from tensorflow import keras
 from tensorflow.keras import layers
-from sklearn.model_selection import train_test_split
 from tensorflow.python.keras.layers.pooling import MaxPooling2D
-from tensorflow.python.ops.gen_array_ops import expand_dims, pad
 #---------------------------------------------------------------------------LIBRARY------------------------------------------------------------------------------
 
 
 root = Tk()
 root.title("GUI Train Test")
-# root.iconbitmap()
+root.iconbitmap('images/icon.ico')
 root.geometry("1200x800")
-# root.minsize(height=440, width=750)
+root.minsize(height=800, width=1200)
+
 
 #--------------------------------------------------------------------------FUNCTIONS------------------------------------------------------------------------------
 
@@ -48,7 +37,7 @@ def url_browse():
     url_entry.insert(0, url_frame.foldername)
 
 def model_browse():
-    model_url_frame.filename = filedialog.askopenfilename(initialdir='C:/Users/029am/Desktop/test', title="Select a Model", filetypes=(("All Files", "*.*"), ("h5", "*.h5")))
+    model_url_frame.filename = filedialog.askopenfilename(initialdir='.', title="Select a Model", filetypes=(("All Files", "*.*"), ("h5", "*.h5")))
     model_url_entry.delete(0, END)
     model_url_entry.insert(0, model_url_frame.filename)
 
@@ -67,7 +56,6 @@ def model_test():
 
     model_path = model_url_entry.get()
     model_path = pathlib.Path(model_path)
-    global loaded_model
     loaded_model = load_model(model_path)
     
     sample_path = sample_url_entry.get()
@@ -205,47 +193,38 @@ def cam0():
     mixer.music.load("audio/alert.ogg")
     while video.isOpened() == True:
         flag, frame = video.read()
-        # cv.imshow('frame', frame)
 
         if flag == True:
             faces = face.detectMultiScale(frame)
             for fx, fy, fw, fh in faces:
                 cropped_face = frame[fy : fy + fh, fx : fx + fw]
                 eyes = eye.detectMultiScale(cropped_face)
-                # cropped_face_display = cv.resize(cropped_face, (200, 200))
-                # cv.imshow('face', cropped_face_display)
 
                 x = []
                 for ex, ey, ew, eh in eyes:
                     cropped_eye = cropped_face[ey : ey + eh, ex : ex + ew]
                     cropped_eye = cv.resize(cropped_eye, (100, 100))
-                    # cv.imshow('eye', cropped_eye)
                     x.append(cropped_eye)
                 x = np.array(x)
                 global x_scaled
                 x_scaled = x / 255
-                # print(len(x))
+
                 if len(x) == 2:
-                    # cv.imshow('eye', cropped_eye)
                     predictions = model.predict(x_scaled)
                     probablities = tf.nn.softmax(predictions[0])
                     if np.argmax(probablities) == 1:
-                        # print("open")
                         score = score + 1
                     else:
-                        # print("closed")
                         score = score - 1
             differnce_time = tm.time() - initial_time
             if differnce_time > 2:
                 score_alert_label["text"] = str("Score :  " + str(score))
                 if score >= 0:
-                    print("open")
                     alert_label["text"] = "Awake"
                     color_alert_change["bg"] = "green"
                     frame_main.update()
                     initial_time = tm.time()
                 else:
-                    print("closed")
                     alert_label["text"] = "Sleepy"
                     color_alert_change["bg"] = "red"
                     frame_main.update()
@@ -284,35 +263,27 @@ def cam1():
     mixer.music.load("audio/alert.ogg")
     while True:
         flag, frame = video1.read()
-        # cv.imshow('frame', frame)
 
         if flag == True:
             faces = face.detectMultiScale(frame)
             for fx, fy, fw, fh in faces:
                 cropped_face = frame[fy : fy + fh, fx : fx + fw]
                 eyes = eye.detectMultiScale(cropped_face)
-                # cropped_face_display = cv.resize(cropped_face, (200, 200))
-                # cv.imshow('face', cropped_face_display)
 
                 x = []
                 for ex, ey, ew, eh in eyes:
                     cropped_eye = cropped_face[ey : ey + eh, ex : ex + ew]
                     cropped_eye = cv.resize(cropped_eye, (100, 100))
-                    # cv.imshow('eye', cropped_eye)
                     x.append(cropped_eye)
                 x = np.array(x)
                 global x_scaled
                 x_scaled = x / 255
-                # print(len(x))
                 if len(x) == 2:
-                    # cv.imshow('eye', cropped_eye)
                     predictions = model.predict(x_scaled)
                     probablities = tf.nn.softmax(predictions[0])
                     if np.argmax(probablities) == 1:
-                        # print("open")
                         score = score + 1
                     else:
-                        # print("closed")
                         score = score - 1
             differnce_time = tm.time() - initial_time
             if differnce_time > 2:
@@ -442,7 +413,6 @@ url_entry_frame =Frame(url_frame)
 url_entry = Entry(url_entry_frame)
 url_entry.pack(side=LEFT, anchor="center", fill=X, expand=1)
 url_entry_frame.pack(side=LEFT, fill=X, expand=1)
-#using expand here to make it reponsive ###########just to remember 
 
 
 img_browse = cv.imread("images/img_browse.png")
@@ -544,7 +514,7 @@ frame_train_fit.pack(fill=BOTH, padx=20, pady=20, expand=1)
 
 
 #------------Train Frame LOGs--------------
-frame_train_info = LabelFrame(frame_train, text="Status")
+frame_train_info = Frame(frame_train)
 info_frame = Frame(frame_train_info, height=100)
 
 label_status = Label(info_frame, text="GIVE INPUTS", font=("comicsansms 60 bold") )
@@ -556,7 +526,7 @@ label_time_taken.pack(anchor=CENTER, fill=BOTH, expand=1, pady=10)
 save_status = Label(info_frame, font=("comicsansms 20 italic"))
 save_status.pack(anchor=CENTER, fill=BOTH, expand=1, pady=10)
 
-info_frame.pack(fill=BOTH, expand=1, pady=30)
+info_frame.pack(fill=BOTH, expand=1)
 frame_train_info.pack(expand=1, fill=BOTH, padx=20, pady=20)
 
 #------------Train Frame LOGs--------------
@@ -659,11 +629,9 @@ color_alert.pack(side=LEFT, anchor=W, fill=BOTH, expand=1, padx=20, pady=10)
 
 
 cam_display = LabelFrame(main1, text="Display", height=650, width=480)
-# cam_display_frame = Frame(cam_display, height=500, width=660)
 img_camOFF = ImageTk.PhotoImage(Image.open('images/img_camOFF.png'))
 label_cam_display = Label(cam_display, bg="beige", image=img_camOFF)
 label_cam_display.pack()
-# cam_display_frame.pack(fill=BOTH, expand=1)
 cam0_btn = Button(cam_display, text="Cam 0", command=switch0)
 cam0_btn.pack(expand=1, fill=X, anchor=S, side=LEFT)
 on__btn = Button(cam_display, text="ON", command=on_off)
