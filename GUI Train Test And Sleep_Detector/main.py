@@ -5,6 +5,7 @@ import numpy as np
 import pathlib
 import threading
 import time as tm
+import webbrowser
 
 
 from pygame import time, mixer
@@ -15,6 +16,7 @@ from PIL import ImageTk, Image
 from tensorflow.keras.models import load_model
 from tensorflow.keras.models import Sequential
 from tensorflow.keras import layers
+from tensorflow.python.keras.backend import batch_get_value
 from tensorflow.python.keras.layers.pooling import MaxPooling2D
 #---------------------------------------------------------------------------LIBRARY------------------------------------------------------------------------------
 
@@ -239,6 +241,7 @@ def cam0():
             if k == 27:
                 break
         frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)    
+        frame = cv.resize(frame, (630, 400))
         img = ImageTk.PhotoImage(Image.fromarray(frame))
         label_cam_display["image"] = img
         if cam_status == 1:
@@ -309,6 +312,8 @@ def cam1():
             k = cv.waitKey(1) & 0xFF
             if k == 27:
                 break
+        frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)    
+        frame = cv.resize(frame, (630, 400))
         img = ImageTk.PhotoImage(Image.fromarray(frame))
         label_cam_display["image"] = img
         if cam_status == 0:
@@ -323,27 +328,35 @@ def on_off():
     cam_status = 0
     cam0()
 
+def OpenCode():
+    webbrowser.open("https://github.com/029aman/Drowsiness-measure/blob/main/GUI%20Train%20Test%20And%20Sleep_Detector/main.py", new=1)
+
+def dark():
+    dark1 = "#313131"
+    outermost_frame.config(bg=dark1)
+    workspace_frame.config(bg=dark1)
+    frame_train.config(bg=dark1)
+
+def Started_About():
+    webbrowser.open("https://github.com/Adi1707/Driver-Alertness-System/blob/main/README.md", new=1)
 
 #--------------------------------------------------------------------------FUNCTIONS------------------------------------------------------------------------------
 
 #---------------------------------------------------------------------------MENU BAR-------------------------------------------------------------------------------- 
 menu_bar = Menu(root)
 
-File = Menu(root)
+File = Menu(root, tearoff=0)
 menu_bar.add_cascade(label="File", menu=File)
-File.add_command(label="Open Code", command=skip)
-File.add_command(label="Settings", command=skip)
+File.add_command(label="Open Code", command=OpenCode)
 File.add_separator()
-File.add_command(label="Exit", command=skip)
+File.add_command(label="Exit", command=root.quit)
 
 
-Help = Menu()
+Help = Menu(root, tearoff=0)
 menu_bar.add_cascade(label="Help", menu=Help)
-Help.add_command(label="Get Started", command=skip)
-Help.add_command(label="View Licence", command=skip)
-Help.add_command(label="Privacy Statement", command=skip)
+Help.add_command(label="Get Started", command=Started_About)
 Help.add_separator()
-Help.add_command(label="About", command=skip)
+Help.add_command(label="About", command=Started_About)
 
 root.config(menu=menu_bar)
 
